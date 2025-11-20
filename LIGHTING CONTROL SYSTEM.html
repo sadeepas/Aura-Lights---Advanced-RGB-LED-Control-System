@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura Lights - Advanced Controller</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+<link rel="icon" href="icon/5.ico" type="image/x-icon">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    @import url('https://rsms.me/inter/inter.css');
+    :root {
+      --color-bg-start: #0f0c29; --color-bg-mid: #302b63; --color-bg-end: #24243e;
+      --color-text: #e0e7ff; --color-text-dim: #a5b4fc; --color-card-bg: rgba(30, 27, 75, 0.6);
+      --color-card-border: rgba(129, 140, 248, 0.3); --color-primary: #818cf8; --color-secondary: #4ade80;
+      --color-danger: #f87171; --color-warning: #facc15; --color-glow: rgba(129, 140, 248, 0.4);
+    }
+    html { font-family: 'Inter', sans-serif; }
+    body { background: linear-gradient(170deg, var(--color-bg-start), var(--color-bg-mid), var(--color-bg-end)); color: var(--color-text); }
+    .card { background: var(--color-card-bg); border: 1px solid var(--color-card-border); backdrop-filter: blur(20px) saturate(150%); border-radius: 1.5rem; }
+    .btn { transition: all .2s ease-in-out; transform-style: preserve-3d; -webkit-tap-highlight-color: transparent; }
+    .btn:hover:not(:disabled) { transform: translateY(-3px) scale(1.03); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+    .btn:active:not(:disabled) { transform: translateY(0) scale(.97); box-shadow: none; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes fade-in-up { from { opacity: 0; transform: translateY(20px) } to { opacity: 1; transform: translateY(0) } }
+    @keyframes pop-in { from { opacity: 0; transform: scale(0.9) } to { opacity: 1; transform: scale(1) } }
+    @keyframes toast-in { from { transform: translateX(100%) } to { transform: translateX(0) } }
+    @keyframes toast-out { from { transform: translateX(0) } to { transform: translateX(100%) } }
+    .animate-fade-in-up { animation: fade-in-up 0.5s ease-out forwards; }
+    .custom-input { background-color: rgba(15, 12, 41, 0.7); border: 1px solid var(--color-card-border); }
+    .custom-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3); }
+    .modal-backdrop { animation: fade-in .3s ease forwards; background: rgba(15, 12, 41, 0.7); backdrop-filter: blur(10px); }
+    .modal-content { animation: pop-in .4s ease-out forwards; }
+    .toast-enter { animation: toast-in .3s ease-out forwards; }
+    .toast-exit { animation: toast-out .3s ease-in forwards; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(129, 140, 248, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(129, 140, 248, 0.5); }
+    .tab-btn { transition: all .2s ease; }
+    .tab-btn.active { color: white; background-color: var(--color-primary); }
+  </style>
+</head>
+<body class="min-h-screen p-4 sm:p-6 md:p-8">
+
+  <div id="loader" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[var(--color-bg-start)] text-center transition-opacity duration-500">
+      <div class="relative w-24 h-24 mb-6"><div class="absolute inset-0 bg-indigo-500 rounded-full opacity-60 animate-ping"></div><div class="relative flex items-center justify-center w-full h-full bg-indigo-600 rounded-full shadow-2xl"><i class="fa-solid fa-lightbulb text-4xl text-yellow-300"></i></div></div>
+      <h1 class="text-3xl font-bold text-white mb-2 tracking-wide">Aura Lights</h1><p class="text-indigo-300 text-sm uppercase tracking-widest">Controller Initializing...</p>
+  </div>
+
+  <div id="appContainer" class="opacity-0 transition-opacity duration-500">
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-[60] space-y-3 w-80"></div>
+    <div id="modalContainer"></div>
+
+    <div class="max-w-7xl mx-auto">
+      <header class="flex flex-col sm:flex-row items-center justify-between mb-8 animate-fade-in-up"><h1 class="text-4xl md:text-5xl font-extrabold tracking-tight flex items-center gap-4 bg-gradient-to-r from-white to-indigo-400 text-transparent bg-clip-text mb-4 sm:mb-0"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Aura Lights</span></h1><div id="headerActions" class="flex items-center gap-3"></div></header>
+
+      <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        <section class="lg:col-span-4 xl:col-span-3 card p-5 animate-fade-in-up" style="animation-delay: 200ms;"><div class="flex items-center justify-between mb-5"><h2 class="text-2xl font-bold text-slate-100">Your Lights</h2><button id="btnAddLight" class="btn px-3 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-xs font-semibold border-indigo-400/30">+ ADD</button></div><div id="lightsList" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2"></div></section>
+        <section class="lg:col-span-8 xl:col-span-9 card p-6 animate-fade-in-up" style="animation-delay: 300ms;"><div id="detailPanel"></div></section>
+        <section class="lg:col-span-12 card p-5 animate-fade-in-up" style="animation-delay: 400ms;"><div class="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4"><h2 class="text-2xl font-bold text-slate-100">Event Log</h2><div class="flex items-center gap-3"><input id="filterInput" placeholder="Filter logs..." class="p-2.5 rounded-md custom-input text-sm w-48 focus:outline-none transition" /><button id="btnClearLog" class="btn px-4 py-2.5 rounded-md bg-slate-700/80 hover:bg-slate-600 text-sm font-medium border-slate-600/50">Clear</button></div></div><div id="logBox" class="h-64 overflow-auto text-sm bg-slate-900/70 rounded-lg p-4 font-mono"></div></section>
+      </main>
+
+      <footer class="mt-12 text-center text-slate-400 animate-fade-in-up" style="animation-delay: 500ms;"><p class="text-sm mb-2">Developed by <span class="font-semibold text-white">Sadeepa Lakshan</span></p><div class="flex justify-center space-x-6 text-xl"><a href="https://github.com/sadeepas" target="_blank" class="hover:text-white transition"><i class="fab fa-github"></i></a><a href="https://www.linkedin.com/in/sadeepa-lakshan/" target="_blank" class="hover:text-white transition"><i class="fab fa-linkedin"></i></a><a href="mailto:sadeepapemasiri2@gmail.com" class="hover:text-white transition"><i class="fas fa-envelope"></i></a></div><p class="text-xs text-slate-500 mt-4">&copy; <span id="year"></span> All Rights Reserved</p></footer>
+    </div>
+  </div>
+
+<script>
+// --- CONSTANTS & CONFIG ---
+const SVC_UUID = "a1b2c3d4-0001-4000-8000-0a0b0c0d0e01";
+const CHR_MAP = { cmd: "a1b2c3d4-0001-4000-8000-0a0b0c0d0e02", state: "a1b2c3d4-0001-4000-8000-0a0b0c0d0e03", cfg: "a1b2c3d4-0001-4000-8000-0a0b0c0d0e04", log: "a1b2c3d4-0001-4000-8000-0a0b0c0d0e05" };
+const FIRMWARE_MAX_LIGHTS = 16;
+const PRESET_COLORS = ['#FF5E5B', '#FFB85B', '#FFFF89', '#5BFF8D', '#5BFFFF', '#5B89FF', '#FF89FF', '#FFFFFF'];
+const el = id => document.getElementById(id);
+
+// --- STATE MANAGEMENT ---
+const app = {
+    mode: 'disconnected', // disconnected, demo, connected
+    connectionType: null, // bluetooth, wifi
+    device: null,
+    websocket: null,
+    characteristics: {},
+    lights: [],
+    selectedLightId: null,
+    activeTab: 'control',
+};
+
+function setState(newState, { renderUI = true, save = false } = {}) {
+    Object.assign(app, newState);
+    if (save) {
+        try {
+            localStorage.setItem('auraLightsConfig', JSON.stringify({ lights: app.lights, selectedLightId: app.selectedLightId }));
+        } catch (e) { console.error("Failed to save state to localStorage:", e); }
+    }
+    if (renderUI) render();
+}
+
+// --- UTILITIES ---
+const debounce = (func, delay) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => func.apply(this, a), delay); }; };
+const createDefaultLight = (id, type = 'rgb', name) => ({
+    id, name: name || `New Light ${id + 1}`, category: 'General', type, state: false,
+    brightness: 220, color: '#ffeadb', effect: 'solid', effectSpeed: 128,
+    schedule: { hour: 6, minute: 0, duration: 60, mask: 127, enabled: false },
+});
+
+// --- API (DEVICE COMMUNICATION) ---
+const API = {
+    connect: async function(type, options = {}) {
+        this.disconnect();
+        if (type === 'bluetooth') await this.connectBluetooth();
+        else if (type === 'wifi') await this.connectWifi(options.ip);
+    },
+    disconnect: function() {
+        if (app.device && app.device.gatt.connected) app.device.gatt.disconnect();
+        if (app.websocket && app.websocket.readyState < 2) app.websocket.close();
+        setState({ device: null, characteristics: {}, websocket: null, mode: 'disconnected', connectionType: null });
+    },
+    connectBluetooth: async function() {
+        try {
+            addLog('Requesting Bluetooth device...');
+            const device = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'ESP32 Lights' }], optionalServices: [SVC_UUID] });
+            device.addEventListener('gattserverdisconnected', API.onDisconnect);
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService(SVC_UUID);
+            const characteristics = {};
+            for (const [name, uuid] of Object.entries(CHR_MAP)) {
+                characteristics[name] = await service.getCharacteristic(uuid);
+            }
+            ['state', 'log', 'cfg'].forEach(async name => {
+                await characteristics[name].startNotifications();
+                characteristics[name].addEventListener('characteristicvaluechanged', e => this.handleNotification(e, name.toUpperCase() + ':'));
+            });
+            setState({ device, characteristics, mode: 'connected', connectionType: 'bluetooth' });
+            addLog(`Connected via Bluetooth to ${device.name}`);
+            showToast(`Connected to ${device.name}!`, 'success');
+            this.writeCmd('GETCFG');
+        } catch (err) { this.handleConnectionError(err); }
+    },
+    connectWifi: async function(ip) {
+        if (!ip) return showToast('IP address is required', 'error');
+        try {
+            addLog(`Connecting to WebSocket at ws://${ip}/ws...`);
+            const socket = new WebSocket(`ws://${ip}/ws`);
+            socket.onopen = () => {
+                localStorage.setItem('auraLightsDeviceIp', ip);
+                setState({ websocket: socket, mode: 'connected', connectionType: 'wifi' });
+                addLog(`Connected via WiFi to ${ip}`);
+                showToast(`Connected to ${ip}!`, 'success');
+                this.writeCmd('GETCFG');
+            };
+            socket.onmessage = event => this.handleNotification(event);
+            socket.onclose = () => this.onDisconnect();
+            socket.onerror = (err) => this.handleConnectionError(new Error('WebSocket connection failed.'));
+        } catch (err) { this.handleConnectionError(err); }
+    },
+    onDisconnect: function() {
+        if (app.mode === 'disconnected') return;
+        addLog('Device disconnected', 'error');
+        showToast('Device disconnected', 'error');
+        this.disconnect();
+    },
+    handleConnectionError: function(err) {
+        addLog(`Connection failed: ${err.message}`, 'error');
+        showToast('Connection failed', 'error');
+        this.disconnect();
+    },
+    startDemo: function() {
+        this.disconnect();
+        let demoLights = app.lights;
+        if (demoLights.length === 0) {
+            demoLights = [
+                createDefaultLight(0, 'rgb', "Living Room Lamp"),
+                createDefaultLight(1, 'single', "Kitchen Downlight"),
+                createDefaultLight(2, 'rgb', "Desk LED Strip"),
+            ];
+            demoLights[0].category = "Living Room";
+            demoLights[1].category = "Kitchen";
+            demoLights[2].category = "Office";
+        }
+        setState({ mode: 'demo', lights: demoLights, selectedLightId: demoLights.length > 0 ? demoLights[0].id : null }, { save: true });
+        addLog('Demo mode started. All operations are simulated.', 'info');
+        showToast('Demo Mode Activated!', 'info');
+    },
+    writeCmd: function(cmd) {
+        if (app.mode === 'demo') return this.mockWriteCmd(cmd);
+        if (app.mode !== 'connected') return showToast('Not connected to a device', 'error');
+        try {
+            if (app.connectionType === 'bluetooth') {
+                app.characteristics.cmd.writeValueWithResponse(new TextEncoder().encode(cmd));
+            } else if (app.connectionType === 'wifi') {
+                app.websocket.send(cmd);
+            }
+            addLog(`Sent: ${cmd}`, 'sent');
+        } catch (err) {
+            addLog(`Send failed: ${err.message}`, 'error');
+            this.onDisconnect();
+        }
+    },
+    mockWriteCmd: function(cmd) {
+        addLog(`DEMO Sent: ${cmd}`, 'sent');
+        setTimeout(() => {
+            const [command, ...args] = cmd.split(':');
+            const id = parseInt(args[0]);
+            let newLights = JSON.parse(JSON.stringify(app.lights));
+            const light = newLights.find(l => l.id === id);
+            
+            const actions = {
+                TOGGLE: () => { if(light) light.state = !light.state; },
+                BRIGHT: () => { if(light) light.brightness = parseInt(args[1]); },
+                COLOR: () => { if(light) light.color = `#${args[1]}`; },
+                EFFECT: () => { if(light) { light.effect = args[1]; light.effectSpeed = +args[2]; } },
+                NAME: () => { if(light) light.name = args.slice(1).join(':'); },
+                CAT: () => { if(light) light.category = args.slice(1).join(':'); },
+                TYPE: () => { if(light) light.type = args[1]; },
+                SCHED: () => { if(light) light.schedule = { hour: +args[1], minute: +args[2], duration: +args[3], mask: +args[4], enabled: args[5] === '1' }; },
+                CLEAR_CFG: () => { newLights = newLights.filter(l => l.id !== id); },
+            };
+            if (actions[command]) {
+                 actions[command]();
+                 setState({ lights: newLights }, { save: true });
+                 showToast(`DEMO: ${command} executed`, 'info');
+            }
+        }, 200);
+    },
+    handleNotification: function(event, prefixOverride = '') { /* ... unchanged ... */ },
+    parseConfig: function(payload) { /* ... unchanged ... */ },
+    addLight: function(name, type) {
+        if (app.lights.length >= FIRMWARE_MAX_LIGHTS) return showToast(`Cannot exceed limit of ${FIRMWARE_MAX_LIGHTS} lights.`, 'error');
+        const nextId = app.lights.reduce((max, l) => Math.max(max, l.id), -1) + 1;
+        const newLight = createDefaultLight(nextId, type, name);
+        this.writeCmd(`NAME:${nextId}:${newLight.name}`);
+        this.writeCmd(`TYPE:${nextId}:${newLight.type}`);
+        setState({ lights: [...app.lights, newLight], selectedLightId: nextId }, { save: true });
+        addLog(`Added ${type} light '${name}' (ID: ${nextId}).`);
+        showToast(`'${name}' added successfully!`, 'success');
+    },
+    removeLight: function(id) {
+        const light = app.lights.find(l => l.id === id);
+        if (!light) return;
+        showModal({
+            title: `Delete '${light.name}'?`,
+            body: `This will permanently remove the light. This action cannot be undone.`,
+            confirmText: 'Delete',
+            confirmClass: 'bg-red-600 hover:bg-red-500',
+            onConfirm: () => {
+                const newLights = app.lights.filter(l => l.id !== id);
+                let newSelectedId = app.selectedLightId;
+                if (app.selectedLightId === id) newSelectedId = newLights.length > 0 ? newLights[0].id : null;
+                this.writeCmd(`CLEAR_CFG:${id}`);
+                setState({ lights: newLights, selectedLightId: newSelectedId }, { save: true });
+                addLog(`Removed light '${light.name}' (ID: ${id})`);
+                showToast(`'${light.name}' deleted.`, 'info');
+            }
+        });
+    }
+};
+
+// --- UI RENDERING ---
+function render() {
+    renderHeaderAndActions();
+    renderLightsList();
+    renderDetailPanel();
+}
+function renderHeaderAndActions() {
+    const statusMap = {
+        disconnected: { text: 'Disconnected', icon: 'fa-ban', color: 'var(--color-danger)' },
+        demo: { text: 'Demo Mode', icon: 'fa-vial', color: 'var(--color-warning)' },
+        connected: { text: app.connectionType === 'wifi' ? 'WiFi' : 'Bluetooth', icon: app.connectionType === 'wifi' ? 'fa-wifi' : 'fa-bluetooth-b', color: 'var(--color-secondary)' }
+    };
+    const status = statusMap[app.mode];
+    el('headerActions').innerHTML = `<div class="flex items-center gap-3 text-sm font-medium p-2 pr-4 rounded-full bg-slate-900/50"><i class="fas ${status.icon} w-8 h-8 rounded-full flex items-center justify-center text-white" style="background-color:${status.color};"></i><span>${status.text}</span></div><button id="btnConnectToggle" class="btn px-5 py-2.5 rounded-xl ${app.mode === 'disconnected' ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-red-600 hover:bg-red-500'} text-white font-bold">${app.mode === 'disconnected' ? 'Connect' : 'Disconnect'}</button>`;
+    el('btnAddLight').disabled = app.mode === 'disconnected';
+}
+function renderLightsList() {
+    if (app.lights.length === 0) {
+        el('lightsList').innerHTML = `<div class="text-center py-8 text-slate-400">No lights configured.<br>Add one to get started!</div>`;
+        return;
+    }
+    el('lightsList').innerHTML = app.lights.map((light, index) => {
+        const icon = light.type === 'rgb' ? 'fa-palette' : 'fa-lightbulb';
+        return `
+        <div class="p-4 rounded-xl flex items-center justify-between transition-all duration-300 cursor-pointer border-2 animate-fade-in-up" 
+             style="animation-delay: ${index * 50}ms; border-color: ${app.selectedLightId === light.id ? 'var(--color-primary)' : 'transparent'}; background-color: rgba(129, 140, 248, ${app.selectedLightId === light.id ? '0.15' : '0.05'})" data-id="${light.id}">
+            <div class="flex items-center gap-4 overflow-hidden"><div class="w-2 h-8 rounded-full transition-colors shrink-0" style="background-color: ${light.state ? (light.type === 'rgb' ? light.color : '#FFFFFF') : '#475569'};"></div><div class="overflow-hidden"><div class="font-bold text-lg text-slate-100 truncate flex items-center gap-2"><i class="fas ${icon} text-xs text-indigo-300"></i><span>${light.name}</span></div><div class="text-xs text-slate-400 truncate">${light.category}</div></div></div>
+            <button class="btn p-2 w-10 h-10 rounded-full flex items-center justify-center transition-colors shrink-0 ${light.state ? 'bg-emerald-500/80 hover:bg-emerald-500' : 'bg-slate-700/80 hover:bg-slate-600'}" data-action="toggle"><i class="fa-solid fa-power-off"></i></button>
+        </div>
+    `}).join('');
+}
+function renderDetailPanel() {
+    const light = app.lights.find(l => l.id === app.selectedLightId);
+    if (!light) {
+        el('detailPanel').innerHTML = `<div class="text-center p-8 flex flex-col items-center justify-center h-full"><i class="fa-solid fa-lightbulb text-6xl text-indigo-400 mb-4"></i><h3 class="text-2xl font-bold text-slate-100">Welcome to Aura Lights</h3><p class="text-slate-400 text-sm mt-1 max-w-sm">Select a light from the list to control it, or add a new one to begin.</p></div>`;
+        return;
+    }
+    const {name, category, brightness, color, type, effect, effectSpeed, schedule} = light;
+    const {hour, minute, duration, mask, enabled} = schedule;
+
+    const controlTabHTML = `<div class="space-y-6">${type === 'rgb' ? `<div><label class="text-sm font-medium text-slate-300 mb-2 block">Color</label><div class="flex items-center gap-4"><div class="relative h-14 w-14 rounded-lg shrink-0" style="background-color: ${color};"><input id="inpColor" type="color" value="${color}" class="w-full h-full opacity-0 cursor-pointer"></div><div class="grid grid-cols-4 sm:grid-cols-8 gap-2 w-full">${PRESET_COLORS.map(c => `<button class="h-8 w-8 rounded-full transition transform hover:scale-110 border-2 border-transparent hover:border-white" style="background-color:${c}" data-action="setPresetColor" data-color="${c}"></button>`).join('')}</div></div></div>` : ''}<div><label class="text-sm font-medium text-slate-300 mb-2 block">Brightness</label><div class="flex items-center gap-4"><i class="fa-regular fa-sun text-slate-400"></i><input id="inpBrightness" type="range" min="10" max="255" value="${brightness}" class="w-full"><i class="fa-solid fa-sun text-white"></i></div></div></div>`;
+    const effectsTabHTML = type === 'rgb' ? `<div class="space-y-6"><div><label class="text-sm font-medium text-slate-300 mb-2 block">Effect Mode</label><select id="selEffect" class="w-full p-2.5 rounded-md custom-input"><option value="solid" ${effect==='solid'?'selected':''}>Solid Color</option><option value="fade" ${effect==='fade'?'selected':''}>Fade</option><option value="strobe" ${effect==='strobe'?'selected':''}>Strobe</option><option value="rainbow" ${effect==='rainbow'?'selected':''}>Rainbow</option></select></div><div><label class="text-sm font-medium text-slate-300 mb-2 block">Effect Speed</label><div class="flex items-center gap-4"><i class="fa-solid fa-person-walking text-slate-400"></i><input id="inpEffectSpeed" type="range" min="0" max="255" value="${effectSpeed}" class="w-full"><i class="fa-solid fa-person-running text-white"></i></div></div></div>` : `<div class="text-center text-slate-400 py-8">Effects are only available for RGB lights.</div>`;
+    const scheduleTabHTML = `<div class="space-y-4"><div class="flex justify-between items-center"><h4 class="text-lg font-bold">Automation</h4><button data-action="toggleSched" role="switch" aria-checked="${enabled}" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${enabled ? 'bg-emerald-500' : 'bg-slate-700'}"><span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" style="transform: translateX(${enabled ? '20px' : '0px'});"></span></button></div><div class="grid grid-cols-2 gap-4"><div><label class="text-xs font-medium text-slate-300 mb-1 block">Start time</label><input id="timeStart" type="time" value="${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}" class="w-full p-2.5 rounded-md custom-input"></div><div><label class="text-xs font-medium text-slate-300 mb-1 block">Duration (mins)</label><input id="numDur" type="number" min="1" max="1440" value="${duration}" class="w-full p-2.5 rounded-md custom-input"></div></div><div><label class="text-xs font-medium text-slate-300 mb-2 block">Repeat on days</label><div class="flex flex-wrap justify-between gap-1.5 mt-1">${['S','M','T','W','T','F','S'].map((d,i)=>`<button data-day="${i}" class="flex-1 py-2.5 rounded-md text-xs font-bold transition-all duration-200 min-w-[36px] ${((mask>>i)&1)?'bg-emerald-500 text-white':'bg-slate-700'}">${d}</button>`).join('')}</div></div><div class="pt-2"><button data-action="saveSched" class="btn w-full px-4 py-2.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-500 font-semibold border-emerald-400/40">Save Schedule</button></div></div>`;
+
+    el('detailPanel').innerHTML = `
+      <div class="animate-fade-in-up">
+        <div class="flex justify-between items-start mb-4"><div class="max-w-full"><input id="inpName" class="text-2xl md:text-3xl font-bold bg-transparent text-slate-100 w-full focus:outline-none focus:bg-slate-800/50 rounded-lg p-2 -m-2" value="${name}"><input id="inpCat" class="text-sm bg-transparent text-slate-400 w-full focus:outline-none focus:bg-slate-800/50 rounded-lg p-2 -m-2" value="${category}"></div><button data-action="delete" class="btn p-2.5 rounded-lg bg-red-800/60 hover:bg-red-700 text-red-300 hover:text-white shrink-0 ml-4"><i class="fa-solid fa-trash-can w-5 h-5"></i></button></div>
+        <div class="flex items-center gap-2 p-1 rounded-lg bg-slate-900/60 mb-6"><button data-tab="control" class="tab-btn flex-1 py-2 px-4 rounded-md text-sm font-semibold ${app.activeTab==='control'?'active':''}">Control</button><button data-tab="effects" class="tab-btn flex-1 py-2 px-4 rounded-md text-sm font-semibold ${app.activeTab==='effects'?'active':''}">Effects</button><button data-tab="schedule" class="tab-btn flex-1 py-2 px-4 rounded-md text-sm font-semibold ${app.activeTab==='schedule'?'active':''}">Schedule</button></div>
+        <div id="tabContent">${{control: controlTabHTML, effects: effectsTabHTML, schedule: scheduleTabHTML}[app.activeTab]}</div>
+      </div>`;
+}
+
+// --- LOGGING, NOTIFICATIONS & MODALS ---
+function addLog(msg, type = 'info') {
+    const t = new Date().toLocaleTimeString();
+    const colorMap = { error: 'text-red-400', sent: 'text-sky-400', device: 'text-amber-400', info: 'text-slate-300' };
+    el('logBox').insertAdjacentHTML('afterbegin', `<div class="flex items-start"><span class="text-slate-500 mr-3 shrink-0">${t}</span><span class="${colorMap[type]}">${msg}</span></div>`);
+}
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    const colors = { success: 'bg-emerald-500', error: 'bg-red-500', info: 'bg-sky-500' };
+    toast.className = `w-full p-4 rounded-lg shadow-2xl text-white font-semibold border-2 ${colors[type]} border-opacity-50 toast-enter`;
+    toast.textContent = message;
+    el('toastContainer').appendChild(toast);
+    setTimeout(() => { toast.classList.replace('toast-enter', 'toast-exit'); toast.addEventListener('animationend', () => toast.remove()); }, 3000);
+}
+function showModal({ title, body, confirmText, onConfirm, customHTML, confirmClass = 'bg-indigo-600 hover:bg-indigo-500' }) {
+    const modal = document.createElement('div');
+    modal.className = "fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop";
+    modal.innerHTML = `<div class="card p-6 w-full max-w-md modal-content"><h3 class="text-xl font-bold text-slate-100 mb-2">${title}</h3><div class="text-slate-400 mt-2 text-sm">${body || customHTML}</div><div class="flex justify-end gap-3 mt-6"><button class="btn-cancel btn px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 font-semibold">Cancel</button>${confirmText ? `<button class="btn-confirm btn px-4 py-2 rounded-lg text-white font-semibold ${confirmClass}">${confirmText}</button>` : ''}</div></div>`;
+    modal.onclick = e => { if (e.target === modal || e.target.classList.contains('btn-cancel')) modal.remove(); };
+    if (onConfirm) modal.querySelector('.btn-confirm')?.addEventListener('click', () => { onConfirm(); modal.remove(); });
+    el('modalContainer').appendChild(modal);
+    return modal;
+}
+function showConnectionModal() {
+    const savedIp = localStorage.getItem('auraLightsDeviceIp') || '';
+    const modal = showModal({
+        title: 'Choose Connection Method',
+        customHTML: `<p class="text-slate-400 mt-2 mb-6">Connect via Bluetooth for direct control or WiFi for network control.</p><div class="space-y-4"><button id="modalBtnBT" class="btn w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold text-white"><i class="fab fa-bluetooth-b text-xl"></i> Connect with Bluetooth</button><div class="border-t border-slate-700 my-2"></div><div class="space-y-2"><label class="text-sm font-medium text-slate-300">ESP32 IP Address:</label><input id="modalInpIP" class="w-full p-2.5 rounded-md custom-input" placeholder="e.g., 192.168.1.100" value="${savedIp}"></div><button id="modalBtnWifi" class="btn w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-semibold text-white"><i class="fas fa-wifi text-lg"></i> Connect with WiFi</button><div class="border-t border-slate-700 my-2"></div><button id="modalBtnDemo" class="btn w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-500 font-semibold text-white"><i class="fas fa-vial text-lg"></i> Start Demo Mode</button></div>`,
+        confirmText: '',
+    });
+    modal.querySelector('#modalBtnBT').onclick = () => { API.connect('bluetooth'); modal.remove(); };
+    modal.querySelector('#modalBtnWifi').onclick = () => { const ip = modal.querySelector('#modalInpIP').value; API.connect('wifi', { ip }); modal.remove(); };
+    modal.querySelector('#modalBtnDemo').onclick = () => { API.startDemo(); modal.remove(); };
+}
+function showAddLightModal() {
+    showModal({
+        title: 'Add a New Light',
+        customHTML: `<div class="space-y-4 mt-4"><div><label class="text-xs font-medium text-slate-300">Light Name</label><input id="modalInpName" class="w-full p-2.5 rounded-md custom-input mt-1" placeholder="e.g., Bedroom Lamp"></div><div><label class="text-xs font-medium text-slate-300">Light Type</label><select id="modalSelType" class="w-full p-2.5 rounded-md custom-input mt-1"><option value="rgb">RGB Color</option><option value="single">Single Color (White)</option></select></div></div>`,
+        confirmText: 'Add Light',
+        onConfirm: () => {
+            const name = el('modalInpName').value.trim() || `New Light`;
+            API.addLight(name, el('modalSelType').value);
+        }
+    });
+}
+
+// --- EVENT HANDLERS ---
+function setupEventListeners() {
+    el('headerActions').addEventListener('click', e => { if (e.target.closest('#btnConnectToggle')) app.mode === 'disconnected' ? showConnectionModal() : API.disconnect(); });
+    el('btnAddLight').addEventListener('click', showAddLightModal);
+    el('btnClearLog').addEventListener('click', () => el('logBox').innerHTML = '');
+    el('filterInput').addEventListener('input', e => { /* filter logic can be added */ });
+    el('lightsList').addEventListener('click', e => {
+        const card = e.target.closest('[data-id]');
+        if (!card) return;
+        const id = parseInt(card.dataset.id);
+        if (e.target.closest('[data-action="toggle"]')) API.writeCmd(`TOGGLE:${id}`);
+        else setState({ selectedLightId: id, activeTab: 'control' });
+    });
+    
+    const debouncedUpdate = debounce((id, cmd, value) => API.writeCmd(`${cmd}:${id}:${value}`), 400);
+
+    el('detailPanel').addEventListener('input', e => {
+        const id = app.selectedLightId;
+        if (id === null) return;
+        const light = app.lights.find(l => l.id === id);
+
+        switch (e.target.id) {
+            case 'inpName': light.name = e.target.value; setState({lights: app.lights}, {renderUI: false, save: true}); debouncedUpdate(id, 'NAME', e.target.value); break;
+            case 'inpCat': light.category = e.target.value; setState({lights: app.lights}, {renderUI: false, save: true}); debouncedUpdate(id, 'CAT', e.target.value); break;
+            case 'inpBrightness': API.writeCmd(`BRIGHT:${id}:${e.target.value}`); light.brightness = e.target.value; setState({lights: app.lights}, {renderUI: false, save: true}); break;
+            case 'inpColor': API.writeCmd(`COLOR:${id}:${e.target.value.substring(1)}`); setState({lights: app.lights.map(l => l.id === id ? {...l, color: e.target.value} : l)}, {renderUI: true, save: true}); break;
+            case 'selEffect':
+            case 'inpEffectSpeed':
+                const newEffect = el('selEffect').value; const newSpeed = el('inpEffectSpeed').value;
+                API.writeCmd(`EFFECT:${id}:${newEffect}:${newSpeed}`);
+                light.effect = newEffect; light.effectSpeed = newSpeed; setState({lights: app.lights}, {renderUI: false, save: true});
+                break;
+        }
+    });
+    el('detailPanel').addEventListener('click', e => {
+        const target = e.target.closest('[data-action], [data-tab], [data-day]');
+        if (!target) return;
+        const id = app.selectedLightId;
+        const light = app.lights.find(l => l.id === id);
+        const action = target.dataset.action;
+        if (target.dataset.tab) setState({ activeTab: target.dataset.tab });
+        if (target.dataset.day) { target.classList.toggle('bg-emerald-500'); target.classList.toggle('text-white'); target.classList.toggle('bg-slate-700'); }
+        
+        const actions = {
+            delete: () => API.removeLight(id),
+            setPresetColor: () => {
+                const color = target.dataset.color;
+                API.writeCmd(`COLOR:${id}:${color.substring(1)}`);
+                setState({lights: app.lights.map(l => l.id === id ? {...l, color} : l)}, {renderUI: true, save: true});
+            },
+            toggleSched: () => {
+                light.schedule.enabled = !light.schedule.enabled;
+                setState({ lights: app.lights }, {renderUI: true, save: true});
+            },
+            saveSched: () => {
+                const [hh, mm] = el('timeStart').value.split(':');
+                const newMask = Array.from(el('detailPanel').querySelectorAll('[data-day]')).reduce((acc, btn) => acc | (btn.classList.contains('bg-emerald-500') ? 1 << btn.dataset.day : 0), 0);
+                light.schedule = { hour: +hh, minute: +mm, duration: +el('numDur').value, mask: newMask, enabled: el('[data-action="toggleSched"]').getAttribute('aria-checked') === 'true'};
+                const {hour, minute, duration, mask, enabled} = light.schedule;
+                API.writeCmd(`SCHED:${id}:${hour}:${minute}:${duration}:${mask}:${enabled ? 1 : 0}`);
+                setState({lights: app.lights}, {save: true});
+                showToast(`Schedule saved for '${light.name}'`, 'success');
+            }
+        };
+        if (actions[action]) actions[action]();
+    });
+}
+
+// --- INITIALIZATION ---
+function init() {
+    el('year').textContent = new Date().getFullYear();
+    try {
+        const saved = JSON.parse(localStorage.getItem('auraLightsConfig'));
+        if (saved && Array.isArray(saved.lights)) setState({ lights: saved.lights, selectedLightId: saved.selectedLightId }, { renderUI: false });
+    } catch (e) { addLog('Could not parse local config.', 'error'); }
+    setupEventListeners();
+    render();
+    setTimeout(() => {
+        el('loader').style.opacity = '0';
+        el('loader').addEventListener('transitionend', () => el('loader').remove());
+        el('appContainer').style.opacity = '1';
+        addLog('UI Ready. Connect to a device or start demo mode.', 'info');
+    }, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
